@@ -242,19 +242,26 @@ class RoguelikeGL:
         
         # Render player stats
         player = self.engine.player
-        health_text = f"HP: {player.fighter.hp}/{player.fighter.max_hp}"
-        attack_text = f"Attack: {player.fighter.power}"
-        defense_text = f"Defense: {player.fighter.defense}"
-        
-        # Render the texts
-        health_surface = self.font.render(health_text, True, (255, 0, 0))
-        attack_surface = self.font.render(attack_text, True, (255, 255, 255))
-        defense_surface = self.font.render(defense_text, True, (255, 255, 255))
-        
-        # Position the texts on the HUD
-        self.hud_surface.blit(health_surface, (10, 10))
-        self.hud_surface.blit(attack_surface, (10, 40))
-        self.hud_surface.blit(defense_surface, (10, 70))
+        if "fighter" in player.components:
+            fighter = player.components["fighter"]
+            health_text = f"HP: {fighter.hp}/{fighter.max_hp}"
+            attack_text = f"Attack: {fighter.power}"
+            defense_text = f"Defense: {fighter.defense}"
+            
+            # Render the texts
+            health_surface = self.font.render(health_text, True, (255, 0, 0))
+            attack_surface = self.font.render(attack_text, True, (255, 255, 255))
+            defense_surface = self.font.render(defense_text, True, (255, 255, 255))
+            
+            # Position the texts on the HUD
+            self.hud_surface.blit(health_surface, (10, 10))
+            self.hud_surface.blit(attack_surface, (10, 40))
+            self.hud_surface.blit(defense_surface, (10, 70))
+        else:
+            # Fallback if fighter component is not available
+            info_text = f"Player: {player.name}"
+            info_surface = self.font.render(info_text, True, (255, 255, 255))
+            self.hud_surface.blit(info_surface, (10, 10))
         
         # If there are messages to display, show them
         if self.engine.message_log:
@@ -307,7 +314,8 @@ class RoguelikeGL:
                 if px < 0 or px >= minimap_size or py < 0 or py >= minimap_size:
                     continue
                 
-                if dungeon.tiles[x, y].is_wall:
+                # In our simplified map, 1 = wall, 0 = floor
+                if dungeon.tiles[x, y] == 1:
                     minimap.set_at((px, py), (100, 100, 100))
                 else:
                     minimap.set_at((px, py), (50, 50, 50))
@@ -345,12 +353,21 @@ class RoguelikeGL:
         
         # Render inventory items
         y_offset = 100
-        for i, item in enumerate(self.engine.player.inventory.items):
-            key = chr(ord('a') + i)
-            item_text = f"{key}) {item.name}"
-            item_surface = self.font.render(item_text, True, (255, 255, 255))
-            overlay.blit(item_surface, (self.width // 2 - 100, y_offset))
-            y_offset += 30
+        if "inventory" in self.engine.player.components:
+            inventory = self.engine.player.components["inventory"]
+            for i, item in enumerate(inventory.items):
+                if item is not None:
+                    key = chr(ord('a') + i)
+                    item_text = f"{key}) {item.name}"
+                    item_surface = self.font.render(item_text, True, (255, 255, 255))
+                    overlay.blit(item_surface, (self.width // 2 - 100, y_offset))
+                    y_offset += 30
+        
+        # If no items, display a message
+        if y_offset == 100:
+            no_items_text = "No items in inventory"
+            no_items_surface = self.font.render(no_items_text, True, (200, 200, 200))
+            overlay.blit(no_items_surface, (self.width // 2 - no_items_surface.get_width() // 2, y_offset))
         
         # Display instructions
         instructions = "Press ESC to close inventory. Press letter to use item."
@@ -440,9 +457,13 @@ class RoguelikeGL:
                 # Use inventory items
                 if self.show_inventory and ord('a') <= event.key <= ord('z'):
                     index = event.key - ord('a')
-                    if index < len(self.engine.player.inventory.items):
-                        self.engine.player.inventory.use(index)
-                        self.show_inventory = False
+                    if "inventory" in self.engine.player.components:
+                        inventory = self.engine.player.components["inventory"]
+                        if index < len(inventory.items) and inventory.items[index] is not None:
+                            # For now, just close the inventory when a letter is pressed
+                            # We would need to implement item usage logic in a real game
+                            print(f"Using item: {inventory.items[index].name}")
+                            self.show_inventory = False
         
         return True
     
